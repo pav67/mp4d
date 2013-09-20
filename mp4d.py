@@ -12,15 +12,10 @@ from xmlrpclib import ServerProxy
 
 
 class Daemon:
-	"""A generic daemon class.
-
-	Usage: subclass the daemon class and override the run() method."""
 
 	def __init__(self, pidfile): self.pidfile = pidfile
 	
 	def daemonize(self):
-		"""Deamonize class. UNIX double fork mechanism."""
-
 		try: 
 			pid = os.fork() 
 			if pid > 0:
@@ -68,7 +63,6 @@ class Daemon:
 		os.remove(self.pidfile)
 
 	def start(self):
-		"""Start the daemon."""
 
 		# Check for a pidfile to see if the daemon already runs
 		try:
@@ -89,7 +83,6 @@ class Daemon:
 		self.run()
 
 	def stop(self):
-		"""Stop the daemon."""
 
 		# Get the pid from the pidfile
 		try:
@@ -119,15 +112,11 @@ class Daemon:
 				sys.exit(1)
 
 	def restart(self):
-		"""Restart the daemon."""
 		self.stop()
 		self.start()
 
 	def run(self):
-		"""You should override this method when you subclass Daemon.
-		
-		It will be called after the process has been daemonized by 
-		start() or restart()."""
+		# à redef
 
 
 
@@ -138,14 +127,14 @@ class mp4d(Daemon):
 			time.sleep(100)
 
 def walk(path):
-        files = os.listdir(path)
-        for f in files:
-                if os.path.isdir(path+'/'+f):
-                        walk(path+'/'+f)
-                fn, ext = os.path.splitext(f)
-                if ext in ['.avi', '.divx', '.xvid', '.mkv', '.mov', '.mp4']:
+	files = os.listdir(path)
+	for f in files:
+		if os.path.isdir(path+'/'+f):
+			walk(path+'/'+f)
+		fn, ext = os.path.splitext(f)
+		if ext in ['.avi', '.divx', '.xvid', '.mkv', '.mov', '.mp4']:
 			logging.debug('film detecte')
-                	sub, name = subdl(path+'/'+f)
+			sub, name = subdl(path+'/'+f)
 			if None not in [sub, name]:
 				logging.debug("le dl des soustitres s'est bien passe")
 				vid = encode(path+'/'+f, path+'/'+sub, name)
@@ -155,46 +144,46 @@ def walk(path):
 					#os.remove(path+'/'+sub)  
 					logging.debug("os.rename(%s,%s)" % (path+'/'+vid,'/home/paul/videos/'+vid ))
 					logging.debug("os.remove(%s)" % (path+'/'+sub))
-                else:  
-                       	#os.remove(path+'/'+f)
-			logging.debug("os.remove(%s)" % (path+'/'+f))
+				else:  
+					#os.remove(path+'/'+f)
+					logging.debug("os.remove(%s)" % (path+'/'+f))
 
 
 def hurt_me_plenty(text):
-        logging.debug("[!] " + text )
-        exit(1)
+	logging.debug("[!] " + text )
+	exit(1)
 
 def hashFile(path):
 
-        try:
+	try:
+		longlongformat = 'Q' 
+		bytesize = struct.calcsize(longlongformat)
+		format = "<%d%s" % (65536//bytesize, longlongformat)
+                
+		f = open(path, "rb")
+		filesize = os.fstat(f.fileno()).st_size
+		hash = filesize
 
-                longlongformat = 'Q' 
-                bytesize = struct.calcsize(longlongformat)
-                format = "<%d%s" % (65536//bytesize, longlongformat)
+		if filesize < 65536 * 2:
+			hurt_me_plenty("Hash error : size")
+			
+		buffer = f.read(65536)
+		longlongs = struct.unpack(format, buffer)
+		hash += sum(longlongs)
                 
-                f = open(path, "rb")
-                filesize = os.fstat(f.fileno()).st_size
-                hash = filesize
-
-                if filesize < 65536 * 2:
-                        hurt_me_plenty("Hash error : size")
-                buffer = f.read(65536)
-                longlongs = struct.unpack(format, buffer)
-                hash += sum(longlongs)
+		f.seek(-65536, os.SEEK_END)
+		buffer = f.read(65536)
+		longlongs = struct.unpack(format, buffer)
+		hash += sum(longlongs)
+		hash &= 0xFFFFFFFFFFFFFFFF
                 
-                f.seek(-65536, os.SEEK_END)
-                buffer = f.read(65536)
-                longlongs = struct.unpack(format, buffer)
-                hash += sum(longlongs)
-                hash &= 0xFFFFFFFFFFFFFFFF
-                
-                f.close()
-                returnedhash = "%016x" % hash
+		f.close()
+		returnedhash = "%016x" % hash
 		logging.debug("hash : %s" % (returnedhash))
-                return returnedhash
+		return returnedhash
 
-        except IOError:
-                hurt_me_plenty("Hash error : IO")
+	except IOError:
+		hurt_me_plenty("Hash error : IO")
 
 def subdl(path):
 
@@ -202,60 +191,60 @@ def subdl(path):
 	name = None
 	logging.debug("subdl(%s)" % (path))
 
-        # Connecting to the server
-        server  = ServerProxy('http://api.opensubtitles.org/xml-rpc')
-        session = server.LogIn('woutich', 'woutich', 'en', 'opensubtitles-download 1.0')
+	# Connecting to the server
+	server  = ServerProxy('http://api.opensubtitles.org/xml-rpc')
+	session = server.LogIn('woutich', 'woutich', 'en', 'opensubtitles-download 1.0')
 
-        if session['status'] != '200 OK':
-                hurt_me_plenty("Login error")
+	if session['status'] != '200 OK':
+		hurt_me_plenty("Login error")
 
-        logging.debug("login OK")
+	logging.debug("login OK")
 	token = session['token']
 	
-        # Computing movie file hash
-        moviehash = hashFile(path)
-        moviesize = os.path.getsize(path)
+	# Computing movie file hash
+	moviehash = hashFile(path)
+	moviesize = os.path.getsize(path)
 
-        # Preparing xmlrpc request
-        search = []
-        search.append({'moviehash' : moviehash, 'moviebytesize' : str(moviesize)})
+	# Preparing xmlrpc request
+	search = []
+	search.append({'moviehash' : moviehash, 'moviebytesize' : str(moviesize)})
 	search.append({'query' : path})
 
-        # Subtitle search request
-        sublist = server.SearchSubtitles(token, search)
+	# Subtitle search request
+	sublist = server.SearchSubtitles(token, search)
 	
 	#logging.debug("data fetched %s" % (str(sublist)))
-        if sublist['data']:
+	if sublist['data']:
 		
 		logging.debug("infos soustitres recuperees")
 
-                # Sanitize strings to avoid parsing errors
-                for item in sublist['data']:
-                        item['MovieName']   = item['MovieName'].strip('"')
-                        item['MovieName']   = item['MovieName'].strip("'")
-                        item['SubFileName'] = item['SubFileName'].strip('"')
-                        item['SubFileName'] = item['SubFileName'].strip("'")
+		# Sanitize strings to avoid parsing errors
+		for item in sublist['data']:
+			item['MovieName']   = item['MovieName'].strip('"')
+			item['MovieName']   = item['MovieName'].strip("'")
+			item['SubFileName'] = item['SubFileName'].strip('"')
+			item['SubFileName'] = item['SubFileName'].strip("'")
 
-                # Getting information about the movie
-                sub_imdbid  = sublist['data'][0]['IDMovieImdb']
-                sub_infos   = server.GetIMDBMovieDetails(token, sub_imdbid)
-                isfrench    = False
+		# Getting information about the movie
+		sub_imdbid  = sublist['data'][0]['IDMovieImdb']
+		sub_infos   = server.GetIMDBMovieDetails(token, sub_imdbid)
+		isfrench    = False
 
 		logging.debug("sub_infos : %s" % (sub_infos['data']['language']))
 
-                if 'French' in sub_infos['data']['language']:
+		if 'French' in sub_infos['data']['language']:
 			logging.debug('le film est francais, pas besoin de soustitres')
-                        isfrench = True
+			isfrench = True
 
-                if isfrench == False:
+		if isfrench == False:
 
-                	logging.debug("downloading subtitles")
+			logging.debug("downloading subtitles")
 
 			# Download subtitles
-                        sub_dir     = os.path.dirname(path)
-                        sub_url     = sublist['data'][0]['SubDownloadLink']
-                        sub_file    = os.path.basename(path)[:-3] + sublist['data'][0]['SubFileName'][-3:]
-                        op_download = subprocess.call('wget -O - ' + sub_url + ' | gunzip > "' + sub_dir + '/' + sub_file+ '"', shell=True)
+			sub_dir     = os.path.dirname(path)
+			sub_url     = sublist['data'][0]['SubDownloadLink']
+			sub_file    = os.path.basename(path)[:-3] + sublist['data'][0]['SubFileName'][-3:]
+			op_download = subprocess.call('wget -O - ' + sub_url + ' | gunzip > "' + sub_dir + '/' + sub_file+ '"', shell=True)
 
 			logging.debug("op_download : %s" % (str(op_download)))
 
@@ -269,8 +258,8 @@ def subdl(path):
 				name = ''.join(c for c in tmpname if c in valid_chars)
 				logging.debug('subtitle bien dl %s pour le film %s' % (sub,name))
 
-        # Loging out
-        server.LogOut(token)
+	# Loging out
+	server.LogOut(token)
 	logging.debug("sortie de subdl : ['%s', '%s']" % (sub, name))
 	return [sub, name]
 
@@ -294,7 +283,7 @@ def subdl(path):
 #	return output
 
 def encode(path, subtitles, name):
-	print "todo"
+	print "todo : mencoder "
 
 if __name__ == '__main__':
 
