@@ -10,11 +10,23 @@ import logging
 import string
 from xmlrpclib import ServerProxy
 
+#--------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+# Daemon class
+#--------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
 
 class Daemon:
 
+#--------------------------------------------------------------------------------------------------
+# Class constructor
+#--------------------------------------------------------------------------------------------------
 	def __init__(self, pidfile): self.pidfile = pidfile
-	
+#--------------------------------------------------------------------------------------------------	
+
+#--------------------------------------------------------------------------------------------------
+# Daemonize function
+#--------------------------------------------------------------------------------------------------
 	def daemonize(self):
 		try: 
 			pid = os.fork() 
@@ -58,10 +70,18 @@ class Daemon:
 		pid = str(os.getpid())
 		with open(self.pidfile,'w+') as f:
 			f.write(pid + '\n')
-	
+#--------------------------------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------------------------------
+# Delpid function
+#--------------------------------------------------------------------------------------------------	
 	def delpid(self):
 		os.remove(self.pidfile)
+#--------------------------------------------------------------------------------------------------
 
+#--------------------------------------------------------------------------------------------------
+# Start function
+#--------------------------------------------------------------------------------------------------
 	def start(self):
 
 		# Check for a pidfile to see if the daemon already runs
@@ -81,7 +101,11 @@ class Daemon:
 		# Start the daemon
 		self.daemonize()
 		self.run()
+#--------------------------------------------------------------------------------------------------
 
+#--------------------------------------------------------------------------------------------------
+# Stop function
+#--------------------------------------------------------------------------------------------------
 	def stop(self):
 
 		# Get the pid from the pidfile
@@ -110,185 +134,232 @@ class Daemon:
 			else:
 				print (str(err.args))
 				sys.exit(1)
+#--------------------------------------------------------------------------------------------------
 
+#--------------------------------------------------------------------------------------------------
+# Restart function
+#--------------------------------------------------------------------------------------------------
 	def restart(self):
 		self.stop()
 		self.start()
+#--------------------------------------------------------------------------------------------------
 
+#--------------------------------------------------------------------------------------------------
+# Run function
+#--------------------------------------------------------------------------------------------------
 	def run(self):
 		# à redef
+#--------------------------------------------------------------------------------------------------#--------------------------------------------------------------------------------------------------
 
 
 
+#--------------------------------------------------------------------------------------------------#--------------------------------------------------------------------------------------------------
+# Mp4d class
+#--------------------------------------------------------------------------------------------------#--------------------------------------------------------------------------------------------------
 class mp4d(Daemon):
+#--------------------------------------------------------------------------------------------------
 	def run(self):
 		while True:
 			walk('/home/paul/encoding')
 			time.sleep(100)
+#--------------------------------------------------------------------------------------------------#--------------------------------------------------------------------------------------------------
+			
+			
+			
+#--------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+# Video class 
+#--------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
 
+class video:
+
+#--------------------------------------------------------------------------------------------------
+# Class constructor, _path is the video path
+#--------------------------------------------------------------------------------------------------
+	def __init__(self, _path):
+		self.path 	= _path
+		self.viddir = '/home/paul/videos'
+#--------------------------------------------------------------------------------------------------
+		
+#--------------------------------------------------------------------------------------------------	
+# Make method : builds mp4 file with subtitles
+#--------------------------------------------------------------------------------------------------	
+	def hashit(self):
+		try:
+			bytesize	= struct.calcsize('Q')
+			format		= "<%d%s" % (65536//bytesize, longlongformat)   
+			f			= open(self.path, "rb")
+			filesize	= os.fstat(f.fileno()).st_size
+			hash		= filesize
+
+			if filesize < 65536 * 2:
+				hurt_me_plenty("Hash error : size")
+			
+			buffer		= f.read(65536)
+			longlongs	= struct.unpack(format, buffer)
+			hash		+= sum(longlongs)
+                
+			f.seek(-65536, os.SEEK_END)
+			buffer		= f.read(65536)
+			longlongs	= struct.unpack(format, buffer)
+			hash		+= sum(longlongs)
+			hash		&= 0xFFFFFFFFFFFFFFFF
+                
+			f.close()
+			returnedhash = "%016x" % hash
+			logging.debug("hash : %s" % (returnedhash))
+			return returnedhash
+
+		except IOError:
+			hurt_me_plenty("Hash error : IO")
+#--------------------------------------------------------------------------------------------------
+
+			
+#--------------------------------------------------------------------------------------------------	
+# Make method : builds mp4 file with subtitles
+#--------------------------------------------------------------------------------------------------	
+	def make(self):
+		# 1) if video is an avi file -> MP4Box (demux)
+		# 1.1) if video is a mkv file -> mkvextract (demux)
+		# 2) if audio is not aac -> ffmpeg (encode)
+		# 3) MP4Box (mux)
+		# 4) move movie file to video dir
+		if vid.make() == True:
+			#os.rename(path+'/'+vid, '/home/paul/videos/'+vid)
+			#os.remove(path+'/'+sub)  
+			logging.debug("os.rename(%s,%s)" % (self.path+'/'+vid,self.viddir+'/'+vid ))
+			logging.debug("os.remove(%s)" % (self.path+'/'+sub))
+#--------------------------------------------------------------------------------------------------
+
+
+#--------------------------------------------------------------------------------------------------	
+# Subdl method : downloads subtitles if the movie is not already in french 
+#--------------------------------------------------------------------------------------------------	
+	def subdl(self):
+
+		dlok  = True
+			
+		# Connecting to the server
+		server  = ServerProxy('http://api.opensubtitles.org/xml-rpc')
+		session = server.LogIn('woutich', 'woutich', 'en', 'opensubtitles-download 1.0')
+	
+		if session['status'] != '200 OK':
+			hurt_me_plenty("Login error")
+	
+		logging.debug("login OK")
+		token = session['token']
+		
+		# Computing movie file hash
+		moviehash = self.hashit()
+		moviesize = os.path.getsize(self.path)
+	
+		# Preparing xmlrpc request
+		search = []
+		search.append({'moviehash' : moviehash, 'moviebytesize' : str(moviesize)})
+		search.append({'query' : self.path})
+	
+		# Subtitle search request
+		sublist = server.SearchSubtitles(token, search)
+		
+		#logging.debug("data fetched %s" % (str(sublist)))
+		if sublist['data']:
+			
+			logging.debug("infos soustitres recuperees")
+	
+			# Sanitize strings to avoid parsing errors
+			for item in sublist['data']:
+				item['MovieName']   = item['MovieName'].strip('"')
+				item['MovieName']   = item['MovieName'].strip("'")
+				item['SubFileName'] = item['SubFileName'].strip('"')
+				item['SubFileName'] = item['SubFileName'].strip("'")
+	
+			# Getting information about the movie
+			sub_imdbid  = sublist['data'][0]['IDMovieImdb']
+			sub_infos   = server.GetIMDBMovieDetails(token, sub_imdbid)
+	
+			logging.debug("sub_infos : %s" % (sub_infos['data']['language']))
+	
+			if 'French' not in sub_infos['data']['language']:
+	
+				logging.debug("downloading subtitles")
+	
+				# Download subtitles
+				sub_dir     = os.path.dirname(self.path)
+				sub_url     = sublist['data'][0]['SubDownloadLink']
+				sub_file    = os.path.basename(path)[:-3] + sublist['data'][0]['SubFileName'][-3:]
+				op_download = subprocess.call('wget -O - ' + sub_url + ' | gunzip > "' + sub_dir + '/' + sub_file+ '"', shell=True)
+	
+				logging.debug("op_download : %s" % (str(op_download)))
+	
+				if op_download == 0:
+					self.sub = sub_file
+					logging.debug("sub_file : %s" % (sub_file))
+					
+					# Sanitizing film name
+					tmpname = sub_infos['data']['title']
+					valid_chars = "-_() %s%s" % (string.ascii_letters, string.digits)
+					self.name = ''.join(c for c in tmpname if c in valid_chars)
+					logging.debug('subtitle bien dl %s pour le film %s' % (self.sub,self.name))
+					
+					dlok = True
+	
+		# Loging out
+		server.LogOut(token)
+		return dlok
+#--------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------------------------------
+# Walking the video directory, downloads sub and make mp4
+#--------------------------------------------------------------------------------------------------
 def walk(path):
+
 	files = os.listdir(path)
+
+	# For each file in the directory
 	for f in files:
+
 		if os.path.isdir(path+'/'+f):
+			# If f is a directory, we need to walk it too
 			walk(path+'/'+f)
+
 		fn, ext = os.path.splitext(f)
-		if ext in ['.avi', '.divx', '.xvid', '.mkv', '.mov', '.mp4']:
+
+		if ext in ['.avi', '.divx', '.xvid', '.mkv', '.mov']:
+
 			logging.debug('film detecte')
-			sub, name = subdl(path+'/'+f)
-			if None not in [sub, name]:
-				logging.debug("le dl des soustitres s'est bien passe")
-				vid = encode(path+'/'+f, path+'/'+sub, name)
-				logging.debug("encode(%s, %s, %s)" %(path+'/'+f, path+'/'+sub, name))
-				if vid != None:
-					#os.rename(path+'/'+vid, '/home/paul/videos/'+vid)
-					#os.remove(path+'/'+sub)  
-					logging.debug("os.rename(%s,%s)" % (path+'/'+vid,'/home/paul/videos/'+vid ))
-					logging.debug("os.remove(%s)" % (path+'/'+sub))
-				else:  
-					#os.remove(path+'/'+f)
-					logging.debug("os.remove(%s)" % (path+'/'+f))
+			vid = video('%s/%s' % (path, f))
+
+			# Downloading subtitles, and then building mp4 file
+			if vid.subdl() == True:
+				vid.make()
+				
+		# If file is already a mp4 file, we just need to move it
+		elif ext == '.mp4':
+			#os.rename(path+'/'+vid, '/home/paul/videos/'+vid)
+			#os.remove(path+'/'+sub)  
+			logging.debug("os.rename(%s,%s)" % (self.path+'/'+vid,self.viddir+'/'+vid ))
+			logging.debug("os.remove(%s)" % (self.path+'/'+sub))
+#--------------------------------------------------------------------------------------------------
 
 
+#--------------------------------------------------------------------------------------------------
+# Error function
+#--------------------------------------------------------------------------------------------------
 def hurt_me_plenty(text):
 	logging.debug("[!] " + text )
 	exit(1)
+#--------------------------------------------------------------------------------------------------
 
-def hashFile(path):
 
-	try:
-		longlongformat = 'Q' 
-		bytesize = struct.calcsize(longlongformat)
-		format = "<%d%s" % (65536//bytesize, longlongformat)
-                
-		f = open(path, "rb")
-		filesize = os.fstat(f.fileno()).st_size
-		hash = filesize
-
-		if filesize < 65536 * 2:
-			hurt_me_plenty("Hash error : size")
-			
-		buffer = f.read(65536)
-		longlongs = struct.unpack(format, buffer)
-		hash += sum(longlongs)
-                
-		f.seek(-65536, os.SEEK_END)
-		buffer = f.read(65536)
-		longlongs = struct.unpack(format, buffer)
-		hash += sum(longlongs)
-		hash &= 0xFFFFFFFFFFFFFFFF
-                
-		f.close()
-		returnedhash = "%016x" % hash
-		logging.debug("hash : %s" % (returnedhash))
-		return returnedhash
-
-	except IOError:
-		hurt_me_plenty("Hash error : IO")
-
-def subdl(path):
-
-	sub  = None
-	name = None
-	logging.debug("subdl(%s)" % (path))
-
-	# Connecting to the server
-	server  = ServerProxy('http://api.opensubtitles.org/xml-rpc')
-	session = server.LogIn('woutich', 'woutich', 'en', 'opensubtitles-download 1.0')
-
-	if session['status'] != '200 OK':
-		hurt_me_plenty("Login error")
-
-	logging.debug("login OK")
-	token = session['token']
-	
-	# Computing movie file hash
-	moviehash = hashFile(path)
-	moviesize = os.path.getsize(path)
-
-	# Preparing xmlrpc request
-	search = []
-	search.append({'moviehash' : moviehash, 'moviebytesize' : str(moviesize)})
-	search.append({'query' : path})
-
-	# Subtitle search request
-	sublist = server.SearchSubtitles(token, search)
-	
-	#logging.debug("data fetched %s" % (str(sublist)))
-	if sublist['data']:
-		
-		logging.debug("infos soustitres recuperees")
-
-		# Sanitize strings to avoid parsing errors
-		for item in sublist['data']:
-			item['MovieName']   = item['MovieName'].strip('"')
-			item['MovieName']   = item['MovieName'].strip("'")
-			item['SubFileName'] = item['SubFileName'].strip('"')
-			item['SubFileName'] = item['SubFileName'].strip("'")
-
-		# Getting information about the movie
-		sub_imdbid  = sublist['data'][0]['IDMovieImdb']
-		sub_infos   = server.GetIMDBMovieDetails(token, sub_imdbid)
-		isfrench    = False
-
-		logging.debug("sub_infos : %s" % (sub_infos['data']['language']))
-
-		if 'French' in sub_infos['data']['language']:
-			logging.debug('le film est francais, pas besoin de soustitres')
-			isfrench = True
-
-		if isfrench == False:
-
-			logging.debug("downloading subtitles")
-
-			# Download subtitles
-			sub_dir     = os.path.dirname(path)
-			sub_url     = sublist['data'][0]['SubDownloadLink']
-			sub_file    = os.path.basename(path)[:-3] + sublist['data'][0]['SubFileName'][-3:]
-			op_download = subprocess.call('wget -O - ' + sub_url + ' | gunzip > "' + sub_dir + '/' + sub_file+ '"', shell=True)
-
-			logging.debug("op_download : %s" % (str(op_download)))
-
-			if op_download == 0:
-				sub = sub_file
-				logging.debug("sub_file : %s" % (sub_file))
-				
-				# Sanitizing film name
-				tmpname = sub_infos['data']['title']
-				valid_chars = "-_() %s%s" % (string.ascii_letters, string.digits)
-				name = ''.join(c for c in tmpname if c in valid_chars)
-				logging.debug('subtitle bien dl %s pour le film %s' % (sub,name))
-
-	# Loging out
-	server.LogOut(token)
-	logging.debug("sortie de subdl : ['%s', '%s']" % (sub, name))
-	return [sub, name]
-
-#def mkvmerge(path, subtitles, name):
-
-#	logging.debug("appel mkvmerge(%s, %s, %s)" % (path, subtitles, name))
-#	output = None
-	
-#	dirname = os.path.dirname(path)
-#	mkvfile = name + '.mkv'
-
-#	logging.debug('mkvmerge -o "%s" "%s" "%s"' % (dirname+'/'+mkvfile, path, subtitles))
-
-#	op_merge = subprocess.call('mkvmerge -o "%s" "%s" "%s"' % (dirname+'/'+mkvfile, path, subtitles), shell=True)
-#
-#	if op_merge == 0:
-#		logging.debug("mkv bien merge : %s" % (mkvfile))
-#		output = mkvfile
-	
-#	logging.debug("sortie de mkvmerge : %s" % (output))
-#	return output
-
-def encode(path, subtitles, name):
-	print "todo : mencoder "
-
+#--------------------------------------------------------------------------------------------------
+# Main program
+#--------------------------------------------------------------------------------------------------
 if __name__ == '__main__':
 
 	logging.basicConfig(filename='subdl.log', level=logging.DEBUG)
-
+	
 	daemon = mp4d('/tmp/mp4d.pid')
 
 	if len(sys.argv) == 2:
@@ -305,3 +376,4 @@ if __name__ == '__main__':
 	else:
 		print "usage: %s start|stop|restart" % sys.argv[0]
         	exit(2)
+#--------------------------------------------------------------------------------------------------
