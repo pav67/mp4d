@@ -172,14 +172,23 @@ class mp4d(Daemon):
 #--------------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
-class video:
+class Video:
+	path		= None
+	videofile 	= None
+	targetdir	= None
+	audio 		= None
+	video 		= None
+	sub			= None
+	name		= None
+	target		= None
 
 #--------------------------------------------------------------------------------------------------
 # Class constructor, _path is the video path
 #--------------------------------------------------------------------------------------------------
 	def __init__(self, _path):
-		self.path 	= _path
-		self.viddir = '/home/paul/videos'
+		self.path 		= os.path.dirname(_path)
+		self.videofile 	= os.path.basename(_path)
+		self.targetdir 	= '/home/paul/videos'
 #--------------------------------------------------------------------------------------------------
 		
 #--------------------------------------------------------------------------------------------------	
@@ -220,16 +229,35 @@ class video:
 # Make method : builds mp4 file with subtitles
 #--------------------------------------------------------------------------------------------------	
 	def make(self):
-		# 1) if video is an avi file -> MP4Box (demux)
-		# 1.1) if video is a mkv file -> mkvextract (demux)
+		res = 0
+		# 1.1) if video is an avi file -> MP4Box (demux)
+		logging.debug("MP4Box -aviraw video %s -out %s" % ('/'.join([self.path, self.videofile]), '/'.join([self.path, '/tmp.vid'])))
+		logging.debug("MP4Box -aviraw audio %s -out %s" % ('/'.join([self.path, self.videofile]), '/'.join([self.path, '/tmp.aud'])))
+		# res += subprocess.call("" % (), shell=True)
+		# 1.2) if video is a mkv file -> mkvextract (demux)
+		logging.debug("mkvextract tracks %s 1:%s 2:%s" % ('/'.join([self.path, self.videofile]), '/'.join([self.path, '/tmp.vid']), '/'.join([self.path, '/tmp.aud'])))
+		#if res == 0 :
+		#	res += subprocess.call("" % (), shell=True)
+
 		# 2) if audio is not aac -> ffmpeg (encode)
+		logging.debug("ffmpeg -i %s -c:a libfaac -b:a 192k %s" % ('/'.join([self.path, '/tmp.aud']), '/'.join([self.path, '/tmp.aac'])))
+		#if res == 0 :
+		#	res += subprocess.call("" % (), shell=True)
+
 		# 3) MP4Box (mux)
+		logging.debug("MP4Box -add %s -add %s -add %s %s" % ('/'.join([self.path, '/tmp.aac']), '/'.join([self.path, '/tmp.vid']), '/'.join([self.path, '/tmp.srt']), '/'.join([self.path, self.target])))
+		# res += subprocess.call("" % (), shell=True)
+
+		
 		# 4) move movie file to video dir
-		if vid.make() == True:
+		if res == 0:
 			#os.rename(path+'/'+vid, '/home/paul/videos/'+vid)
 			#os.remove(path+'/'+sub)  
-			logging.debug("os.rename(%s,%s)" % (self.path+'/'+vid,self.viddir+'/'+vid ))
-			logging.debug("os.remove(%s)" % (self.path+'/'+sub))
+			logging.debug("os.rename(%s, %s)" % ('/'.join([self.path, self.target]), '/'.join([self.targetdir, self.target])))
+			logging.debug("os.remove(%s)" % ('/'.join([self.path, '/tmp.srt']))
+			logging.debug("os.remove(%s)" % ('/'.join([self.path, '/tmp.aac'])))
+			logging.debug("os.remove(%s)" % ('/'.join([self.path, '/tmp.vid']))
+			logging.debug("os.remove(%s)" % ('/'.join([self.path, '/tmp.aud'])))
 #--------------------------------------------------------------------------------------------------
 
 
@@ -252,12 +280,12 @@ class video:
 		
 		# Computing movie file hash
 		moviehash = self.hashit()
-		moviesize = os.path.getsize(self.path)
+		moviesize = os.path.getsize('/'.join([self.path, self.videofile])
 	
 		# Preparing xmlrpc request
 		search = []
 		search.append({'moviehash' : moviehash, 'moviebytesize' : str(moviesize)})
-		search.append({'query' : self.path})
+		search.append({'query' : '/'.join([self.path, self.videofile]) })
 	
 		# Subtitle search request
 		sublist = server.SearchSubtitles(token, search)
@@ -285,23 +313,19 @@ class video:
 				logging.debug("downloading subtitles")
 	
 				# Download subtitles
-				sub_dir     = os.path.dirname(self.path)
 				sub_url     = sublist['data'][0]['SubDownloadLink']
-				sub_file    = os.path.basename(path)[:-3] + sublist['data'][0]['SubFileName'][-3:]
-				op_download = subprocess.call('wget -O - ' + sub_url + ' | gunzip > "' + sub_dir + '/' + sub_file+ '"', shell=True)
+				op_download = subprocess.call('wget -O - ' + sub_url + ' | gunzip > "' + self.path + '/tmp.srt"', shell=True)
 	
 				logging.debug("op_download : %s" % (str(op_download)))
 	
 				if op_download == 0:
-					self.sub = sub_file
-					logging.debug("sub_file : %s" % (sub_file))
-					
+									
 					# Sanitizing film name
-					tmpname = sub_infos['data']['title']
+					tmpname 	= sub_infos['data']['title']
 					valid_chars = "-_() %s%s" % (string.ascii_letters, string.digits)
-					self.name = ''.join(c for c in tmpname if c in valid_chars)
-					logging.debug('subtitle bien dl %s pour le film %s' % (self.sub,self.name))
-					
+					self.name 	= ''.join(c for c in tmpname if c in valid_chars)
+					self.target	= "%s/%s.mp4" % (self.path, self.name)
+										
 					dlok = True
 	
 		# Loging out
@@ -326,21 +350,14 @@ def walk(path):
 
 		fn, ext = os.path.splitext(f)
 
-		if ext in ['.avi', '.divx', '.xvid', '.mkv', '.mov']:
+		if ext in ['.avi', '.divx', '.xvid', '.mkv', '.mov', '.mp4']:
 
 			logging.debug('film detecte')
-			vid = video('%s/%s' % (path, f))
+			vid = Video('%s/%s' % (path, f))
 
 			# Downloading subtitles, and then building mp4 file
 			if vid.subdl() == True:
 				vid.make()
-				
-		# If file is already a mp4 file, we just need to move it
-		elif ext == '.mp4':
-			#os.rename(path+'/'+vid, '/home/paul/videos/'+vid)
-			#os.remove(path+'/'+sub)  
-			logging.debug("os.rename(%s,%s)" % (self.path+'/'+vid,self.viddir+'/'+vid ))
-			logging.debug("os.remove(%s)" % (self.path+'/'+sub))
 #--------------------------------------------------------------------------------------------------
 
 
