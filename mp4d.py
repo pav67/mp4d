@@ -183,6 +183,12 @@ class Video:
 	target		= None
 
 #--------------------------------------------------------------------------------------------------
+# Fp function tiny function making sure the path is correct 
+#--------------------------------------------------------------------------------------------------
+	def fp(self, _file):
+		return '/'.join([self.path, _file])
+
+#--------------------------------------------------------------------------------------------------
 # Class constructor, _path is the video path
 #--------------------------------------------------------------------------------------------------
 	def __init__(self, _path):
@@ -229,23 +235,36 @@ class Video:
 # Make method : builds mp4 file with subtitles
 #--------------------------------------------------------------------------------------------------	
 	def make(self):
+		
 		res = 0
+		fn, ext = os.path.splitext(f)
+		
 		# 1.1) if video is an avi file -> MP4Box (demux)
-		logging.debug("MP4Box -aviraw video %s -out %s" % ('/'.join([self.path, self.videofile]), '/'.join([self.path, '/tmp.vid'])))
-		logging.debug("MP4Box -aviraw audio %s -out %s" % ('/'.join([self.path, self.videofile]), '/'.join([self.path, '/tmp.aud'])))
+		if ext == ".avi":
+			logging.debug("MP4Box -aviraw video %s -out %s" % ( fp(self.videofile), fp('/tmp.vid') ) )
+			logging.debug("MP4Box -aviraw audio %s -out %s" % ( fp(self.videofile), fp('/tmp.vid') ) )
 		# res += subprocess.call("" % (), shell=True)
+		
+		
 		# 1.2) if video is a mkv file -> mkvextract (demux)
-		logging.debug("mkvextract tracks %s 1:%s 2:%s" % ('/'.join([self.path, self.videofile]), '/'.join([self.path, '/tmp.vid']), '/'.join([self.path, '/tmp.aud'])))
-		#if res == 0 :
-		#	res += subprocess.call("" % (), shell=True)
-
+		elif ext == ".mkv":
+			logging.debug("mkvextract tracks %s 0:%s 1:%s" % ( fp(self.videofile), fp('/tmp.vid'), fp('/tmp.aud') ) )
+			#if res == 0 :
+				#res += subprocess.call("" % (), shell=True)
+		
+		#else :
+			#logging.debug("os.rename(%s, %s)" % ( fp(self.videofile), fp('/tmp.vid') ) à voir
+			
 		# 2) if audio is not aac -> ffmpeg (encode)
-		logging.debug("ffmpeg -i %s -c:a libfaac -b:a 192k %s" % ('/'.join([self.path, '/tmp.aud']), '/'.join([self.path, '/tmp.aac'])))
-		#if res == 0 :
-		#	res += subprocess.call("" % (), shell=True)
+		if isAac() == False:
+			logging.debug("ffmpeg -i %s -c:a libfaac -b:a 192k %s" % ( fp('/tmp.aud'), fp('/tmp.aac') ) )
+			#if res == 0 :
+				#res += subprocess.call("" % (), shell=True)
+		else:
+			logging.debug("os.rename(%s, %s)" % ( fp('/tmp.aud'), fp('/tmp.aac') )
 
 		# 3) MP4Box (mux)
-		logging.debug("MP4Box -add %s -add %s -add %s %s" % ('/'.join([self.path, '/tmp.aac']), '/'.join([self.path, '/tmp.vid']), '/'.join([self.path, '/tmp.srt']), '/'.join([self.path, self.target])))
+		logging.debug("MP4Box -add %s -add %s -add %s %s" % ( fp('/tmp.aac'), fp('/tmp.vid'), fp('/tmp.srt'), fp(self.target) ) )
 		# res += subprocess.call("" % (), shell=True)
 
 		
@@ -253,11 +272,11 @@ class Video:
 		if res == 0:
 			#os.rename(path+'/'+vid, '/home/paul/videos/'+vid)
 			#os.remove(path+'/'+sub)  
-			logging.debug("os.rename(%s, %s)" % ('/'.join([self.path, self.target]), '/'.join([self.targetdir, self.target])))
-			logging.debug("os.remove(%s)" % ('/'.join([self.path, '/tmp.srt']))
-			logging.debug("os.remove(%s)" % ('/'.join([self.path, '/tmp.aac'])))
-			logging.debug("os.remove(%s)" % ('/'.join([self.path, '/tmp.vid']))
-			logging.debug("os.remove(%s)" % ('/'.join([self.path, '/tmp.aud'])))
+			logging.debug("os.rename(%s, %s)" % ( fp(self.target), '/'.join([self.targetdir, self.target])))
+			logging.debug("os.remove(%s)" % (fp('/tmp.srt')))
+			logging.debug("os.remove(%s)" % (fp('/tmp.aac')))
+			logging.debug("os.remove(%s)" % (fp('/tmp.vid')))
+			logging.debug("os.remove(%s)" % (fp('/tmp.aud')))
 #--------------------------------------------------------------------------------------------------
 
 
@@ -280,12 +299,12 @@ class Video:
 		
 		# Computing movie file hash
 		moviehash = self.hashit()
-		moviesize = os.path.getsize('/'.join([self.path, self.videofile])
+		moviesize = os.path.getsize(fp(self.videofile))
 	
 		# Preparing xmlrpc request
 		search = []
 		search.append({'moviehash' : moviehash, 'moviebytesize' : str(moviesize)})
-		search.append({'query' : '/'.join([self.path, self.videofile]) })
+		search.append({'query' : fp(self.videofile) })
 	
 		# Subtitle search request
 		sublist = server.SearchSubtitles(token, search)
