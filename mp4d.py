@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# coding: utf-8
 import os
 import struct
 import subprocess
@@ -143,26 +144,24 @@ class Daemon:
 		self.stop()
 		self.start()
 #--------------------------------------------------------------------------------------------------
+	
+#--------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
 
 #--------------------------------------------------------------------------------------------------
-# Run function
 #--------------------------------------------------------------------------------------------------
-	def run(self):
-		# à redef
-#--------------------------------------------------------------------------------------------------#--------------------------------------------------------------------------------------------------
-
-
-
-#--------------------------------------------------------------------------------------------------#--------------------------------------------------------------------------------------------------
 # Mp4d class
-#--------------------------------------------------------------------------------------------------#--------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
 class mp4d(Daemon):
 #--------------------------------------------------------------------------------------------------
 	def run(self):
 		while True:
 			walk('/home/paul/encoding')
 			time.sleep(100)
-#--------------------------------------------------------------------------------------------------#--------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
 			
 			
 			
@@ -202,28 +201,31 @@ class Video:
 #--------------------------------------------------------------------------------------------------	
 	def hashit(self):
 		try:
-			bytesize	= struct.calcsize('Q')
-			format		= "<%d%s" % (65536//bytesize, longlongformat)   
-			f			= open(self.path, "rb")
-			filesize	= os.fstat(f.fileno()).st_size
-			hash		= filesize
+			longlongformat 	= 'Q' 
+			bytesize 		= struct.calcsize(longlongformat)
+			format 			= "<%d%s" % (65536//bytesize, longlongformat)
+			
+			f 				= open(self.fp(self.videofile), "rb")
+			filesize 		= os.fstat(f.fileno()).st_size
+			hash 			= filesize
 
 			if filesize < 65536 * 2:
 				hurt_me_plenty("Hash error : size")
 			
-			buffer		= f.read(65536)
-			longlongs	= struct.unpack(format, buffer)
-			hash		+= sum(longlongs)
-                
+			buffer 			= f.read(65536)
+			longlongs 		= struct.unpack(format, buffer)
+			hash 			+= sum(longlongs)
+
 			f.seek(-65536, os.SEEK_END)
-			buffer		= f.read(65536)
-			longlongs	= struct.unpack(format, buffer)
-			hash		+= sum(longlongs)
-			hash		&= 0xFFFFFFFFFFFFFFFF
-                
+			buffer 			= f.read(65536)
+			longlongs 		= struct.unpack(format, buffer)
+			hash 			+= sum(longlongs)
+			hash 			&= 0xFFFFFFFFFFFFFFFF
+
 			f.close()
-			returnedhash = "%016x" % hash
-			logging.debug("hash : %s" % (returnedhash))
+			returnedhash 	= "%016x" % hash
+
+			print "[+] Hash ok : " + returnedhash
 			return returnedhash
 
 		except IOError:
@@ -237,34 +239,34 @@ class Video:
 	def make(self):
 		
 		res = 0
-		fn, ext = os.path.splitext(f)
+		fn, ext = os.path.splitext(self.videofile)
 		
 		# 1.1) if video is an avi file -> MP4Box (demux)
 		if ext == ".avi":
-			logging.debug("MP4Box -aviraw video %s -out %s" % ( fp(self.videofile), fp('/tmp.vid') ) )
-			logging.debug("MP4Box -aviraw audio %s -out %s" % ( fp(self.videofile), fp('/tmp.vid') ) )
+			print("MP4Box -aviraw video %s -out %s" % ( self.fp(self.videofile), self.fp('/tmp.vid') ) )
+			print("MP4Box -aviraw audio %s -out %s" % ( self.fp(self.videofile), self.fp('/tmp.vid') ) )
 		# res += subprocess.call("" % (), shell=True)
 		
 		
 		# 1.2) if video is a mkv file -> mkvextract (demux)
 		elif ext == ".mkv":
-			logging.debug("mkvextract tracks %s 0:%s 1:%s" % ( fp(self.videofile), fp('/tmp.vid'), fp('/tmp.aud') ) )
+			print("mkvextract tracks %s 0:%s 1:%s" % ( self.fp(self.videofile), self.fp('/tmp.vid'), self.fp('/tmp.aud') ) )
 			#if res == 0 :
 				#res += subprocess.call("" % (), shell=True)
 		
 		#else :
-			#logging.debug("os.rename(%s, %s)" % ( fp(self.videofile), fp('/tmp.vid') ) à voir
+			#print("os.rename(%s, %s)" % ( fp(self.videofile), fp('/tmp.vid') ) à voir
 			
 		# 2) if audio is not aac -> ffmpeg (encode)
 		if isAac() == False:
-			logging.debug("ffmpeg -i %s -c:a libfaac -b:a 192k %s" % ( fp('/tmp.aud'), fp('/tmp.aac') ) )
+			print("ffmpeg -i %s -c:a libfaac -b:a 192k %s" % ( self.fp('/tmp.aud'), self.fp('/tmp.aac') ) )
 			#if res == 0 :
 				#res += subprocess.call("" % (), shell=True)
 		else:
-			logging.debug("os.rename(%s, %s)" % ( fp('/tmp.aud'), fp('/tmp.aac') )
+			print("os.rename(%s, %s)" % ( self.fp('/tmp.aud'), self.fp('/tmp.aac') ) )
 
 		# 3) MP4Box (mux)
-		logging.debug("MP4Box -add %s -add %s -add %s %s" % ( fp('/tmp.aac'), fp('/tmp.vid'), fp('/tmp.srt'), fp(self.target) ) )
+		print("MP4Box -add %s -add %s -add %s %s" % ( self.fp('/tmp.aac'), self.fp('/tmp.vid'), self.fp('/tmp.srt'), self.fp(self.target) ) )
 		# res += subprocess.call("" % (), shell=True)
 
 		
@@ -272,11 +274,11 @@ class Video:
 		if res == 0:
 			#os.rename(path+'/'+vid, '/home/paul/videos/'+vid)
 			#os.remove(path+'/'+sub)  
-			logging.debug("os.rename(%s, %s)" % ( fp(self.target), '/'.join([self.targetdir, self.target])))
-			logging.debug("os.remove(%s)" % (fp('/tmp.srt')))
-			logging.debug("os.remove(%s)" % (fp('/tmp.aac')))
-			logging.debug("os.remove(%s)" % (fp('/tmp.vid')))
-			logging.debug("os.remove(%s)" % (fp('/tmp.aud')))
+			print("os.rename(%s, %s)" % ( self.fp(self.target), '/'.join([self.targetdir, self.target])))
+			print("os.remove(%s)" % (self.fp('/tmp.srt')))
+			print("os.remove(%s)" % (self.fp('/tmp.aac')))
+			print("os.remove(%s)" % (self.fp('/tmp.vid')))
+			print("os.remove(%s)" % (self.fp('/tmp.aud')))
 #--------------------------------------------------------------------------------------------------
 
 
@@ -294,25 +296,25 @@ class Video:
 		if session['status'] != '200 OK':
 			hurt_me_plenty("Login error")
 	
-		logging.debug("login OK")
+		print("login OK")
 		token = session['token']
 		
 		# Computing movie file hash
 		moviehash = self.hashit()
-		moviesize = os.path.getsize(fp(self.videofile))
+		moviesize = os.path.getsize(self.fp(self.videofile))
 	
 		# Preparing xmlrpc request
 		search = []
 		search.append({'moviehash' : moviehash, 'moviebytesize' : str(moviesize)})
-		search.append({'query' : fp(self.videofile) })
+		search.append({'query' : self.fp(self.videofile) })
 	
 		# Subtitle search request
 		sublist = server.SearchSubtitles(token, search)
 		
-		#logging.debug("data fetched %s" % (str(sublist)))
+		#print("data fetched %s" % (str(sublist)))
 		if sublist['data']:
 			
-			logging.debug("infos soustitres recuperees")
+			print("infos soustitres recuperees")
 	
 			# Sanitize strings to avoid parsing errors
 			for item in sublist['data']:
@@ -325,17 +327,17 @@ class Video:
 			sub_imdbid  = sublist['data'][0]['IDMovieImdb']
 			sub_infos   = server.GetIMDBMovieDetails(token, sub_imdbid)
 	
-			logging.debug("sub_infos : %s" % (sub_infos['data']['language']))
+			print("sub_infos : %s" % (sub_infos['data']['language']))
 	
 			if 'French' not in sub_infos['data']['language']:
 	
-				logging.debug("downloading subtitles")
+				print("downloading subtitles")
 	
 				# Download subtitles
 				sub_url     = sublist['data'][0]['SubDownloadLink']
 				op_download = subprocess.call('wget -O - ' + sub_url + ' | gunzip > "' + self.path + '/tmp.srt"', shell=True)
 	
-				logging.debug("op_download : %s" % (str(op_download)))
+				print("op_download : %s" % (str(op_download)))
 	
 				if op_download == 0:
 									
@@ -371,7 +373,7 @@ def walk(path):
 
 		if ext in ['.avi', '.divx', '.xvid', '.mkv', '.mov', '.mp4']:
 
-			logging.debug('film detecte')
+			print('film detecte')
 			vid = Video('%s/%s' % (path, f))
 
 			# Downloading subtitles, and then building mp4 file
@@ -384,7 +386,7 @@ def walk(path):
 # Error function
 #--------------------------------------------------------------------------------------------------
 def hurt_me_plenty(text):
-	logging.debug("[!] " + text )
+	print("[!] " + text )
 	exit(1)
 #--------------------------------------------------------------------------------------------------
 
@@ -394,22 +396,22 @@ def hurt_me_plenty(text):
 #--------------------------------------------------------------------------------------------------
 if __name__ == '__main__':
 
-	logging.basicConfig(filename='subdl.log', level=logging.DEBUG)
-	
-	daemon = mp4d('/tmp/mp4d.pid')
+	#logging.basicConfig(filename='subdl.log', level=print)
+	walk('/Users/anais/Paul')
+	#daemon = mp4d('/tmp/mp4d.pid')
 
-	if len(sys.argv) == 2:
-		if 'start' == sys.argv[1]:
-			daemon.start()
-		elif 'stop' == sys.argv[1]:
-			daemon.stop()
-		elif 'restart' == sys.argv[1]:
-			daemon.restart()
-		else:
-			print "Unknown command"
-			sys.exit(2)
-		sys.exit(0)
-	else:
-		print "usage: %s start|stop|restart" % sys.argv[0]
-        	exit(2)
+	#if len(sys.argv) == 2:
+	#	if 'start' == sys.argv[1]:
+	#		daemon.start()
+	#	elif 'stop' == sys.argv[1]:
+	#		daemon.stop()
+	#	elif 'restart' == sys.argv[1]:
+	#		daemon.restart()
+	#	else:
+	#		print "Unknown command"
+	#	sys.exit(0)
+	#else:
+	#	print "usage: %s start|stop|restart" % sys.argv[0]
+    #   	exit(2)
+    
 #--------------------------------------------------------------------------------------------------
