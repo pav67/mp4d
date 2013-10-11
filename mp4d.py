@@ -172,28 +172,32 @@ class mp4d(Daemon):
 #--------------------------------------------------------------------------------------------------
 
 class Video:
-	path		= None
-	videofile 	= None
-	targetdir	= None
-	audio 		= None
-	video 		= None
-	sub			= None
-	name		= None
-	target		= None
-
-#--------------------------------------------------------------------------------------------------
-# Fp function tiny function making sure the path is correct 
-#--------------------------------------------------------------------------------------------------
-	def fp(self, _file):
-		return '/'.join([self.path, _file])
+	path            = None
+	videofile       = None
+    fullvideofile   = None
+	targetdir       = None
+	audiofile 		= None
+    fullaudtmpfile  = None
+    fullaudiofile   = None
+    fullsubfile     = None
+	name            = None
+	target          = None
+    hash            = None
 
 #--------------------------------------------------------------------------------------------------
 # Class constructor, _path is the video path
 #--------------------------------------------------------------------------------------------------
 	def __init__(self, _path):
-		self.path 		= os.path.dirname(_path)
-		self.videofile 	= os.path.basename(_path)
-		self.targetdir 	= '/home/paul/videos'
+        self.fullvideofile  = _path
+		self.path           = os.path.dirname(_path)
+		self.videofile      = os.path.basename(_path)
+		self.targetdir      = '/home/paul/videos'
+        self.hash           = self.hashit(_path)
+        self.size           = os.path.getsize(_path)
+        self.fullaudiofile  = '/'.join([self.path, 'tmp.aac'])
+        self.fullaudtmpfile = '/'.join([self.path, 'tmp.aud'])
+        self.fullvideofile  = '/'.join([self.path, 'tmp.vid'])
+        self.fullsubfile    = '/'.join([self.path, 'tmp.srt'])
 #--------------------------------------------------------------------------------------------------
 		
 #--------------------------------------------------------------------------------------------------	
@@ -205,7 +209,7 @@ class Video:
 			bytesize 		= struct.calcsize(longlongformat)
 			format 			= "<%d%s" % (65536//bytesize, longlongformat)
 			
-			f 				= open(self.fp(self.videofile), "rb")
+			f 				= open(self.fullvideofile, "rb")
 			filesize 		= os.fstat(f.fileno()).st_size
 			hash 			= filesize
 
@@ -243,30 +247,30 @@ class Video:
 		
 		# 1.1) if video is an avi file -> MP4Box (demux)
 		if ext == ".avi":
-			print("MP4Box -aviraw video %s -out %s" % ( self.fp(self.videofile), self.fp('/tmp.vid') ) )
-			print("MP4Box -aviraw audio %s -out %s" % ( self.fp(self.videofile), self.fp('/tmp.vid') ) )
+			print("MP4Box -aviraw video %s -out %s" % ( self.fullvideofile, self.fullvideofile ) )
+			print("MP4Box -aviraw audio %s -out %s" % ( self.fullvideofile, self.fullaudtmpfile ) )
 		# res += subprocess.call("" % (), shell=True)
 		
 		
 		# 1.2) if video is a mkv file -> mkvextract (demux)
 		elif ext == ".mkv":
-			print("mkvextract tracks %s 0:%s 1:%s" % ( self.fp(self.videofile), self.fp('/tmp.vid'), self.fp('/tmp.aud') ) )
+			print("mkvextract tracks %s 0:%s 1:%s" % ( self.fullvideofile, self.fullvideofile, self.fullaudtmpfile ) )
 			#if res == 0 :
 				#res += subprocess.call("" % (), shell=True)
 		
-		#else :
-			#print("os.rename(%s, %s)" % ( fp(self.videofile), fp('/tmp.vid') ) à voir
+		else :
+			print("os.rename(%s, %s)" % ( self.fullvideofile, self.fullvideofile )
 			
 		# 2) if audio is not aac -> ffmpeg (encode)
 		if isAac() == False:
-			print("ffmpeg -i %s -c:a libfaac -b:a 192k %s" % ( self.fp('/tmp.aud'), self.fp('/tmp.aac') ) )
+			print("ffmpeg -i %s -c:a libfaac -b:a 192k %s" % ( self.fullaudtmpfile, self.fullaudiofile ) )
 			#if res == 0 :
 				#res += subprocess.call("" % (), shell=True)
 		else:
-			print("os.rename(%s, %s)" % ( self.fp('/tmp.aud'), self.fp('/tmp.aac') ) )
+			print("os.rename(%s, %s)" % ( self.fullaudtmpfile, self.fullaudiofile ) )
 
 		# 3) MP4Box (mux)
-		print("MP4Box -add %s -add %s -add %s %s" % ( self.fp('/tmp.aac'), self.fp('/tmp.vid'), self.fp('/tmp.srt'), self.fp(self.target) ) )
+		print("MP4Box -add %s -add %s -add %s %s" % ( self.fullaudiofile, self.fullvideofile, self.fullsubfile, '/'.join([self.path, self.target]) ) )
 		# res += subprocess.call("" % (), shell=True)
 
 		
@@ -274,11 +278,11 @@ class Video:
 		if res == 0:
 			#os.rename(path+'/'+vid, '/home/paul/videos/'+vid)
 			#os.remove(path+'/'+sub)  
-			print("os.rename(%s, %s)" % ( self.fp(self.target), '/'.join([self.targetdir, self.target])))
-			print("os.remove(%s)" % (self.fp('/tmp.srt')))
-			print("os.remove(%s)" % (self.fp('/tmp.aac')))
-			print("os.remove(%s)" % (self.fp('/tmp.vid')))
-			print("os.remove(%s)" % (self.fp('/tmp.aud')))
+			print("os.rename(%s, %s)" % ( '/'.join([self.path, self.target]), '/'.join([self.targetdir, self.target])))
+			print("os.remove(%s)" % (self.fullsubfile))
+			print("os.remove(%s)" % (self.fullaudiofile))
+			print("os.remove(%s)" % (self.fullvideofile))
+			print("os.remove(%s)" % (self.fullaudtmpfile))
 #--------------------------------------------------------------------------------------------------
 
 
@@ -287,7 +291,7 @@ class Video:
 #--------------------------------------------------------------------------------------------------	
 	def subdl(self):
 
-		dlok  = True
+		dlok  = False
 			
 		# Connecting to the server
 		server  = ServerProxy('http://api.opensubtitles.org/xml-rpc')
@@ -298,15 +302,11 @@ class Video:
 	
 		print("login OK")
 		token = session['token']
-		
-		# Computing movie file hash
-		moviehash = self.hashit()
-		moviesize = os.path.getsize(self.fp(self.videofile))
 	
 		# Preparing xmlrpc request
 		search = []
-		search.append({'moviehash' : moviehash, 'moviebytesize' : str(moviesize)})
-		search.append({'query' : self.fp(self.videofile) })
+		search.append({'moviehash' : self.hash, 'moviebytesize' : str(self.size)})
+		search.append({'query' : self.fullvideofile })
 	
 		# Subtitle search request
 		sublist = server.SearchSubtitles(token, search)
@@ -365,16 +365,16 @@ def walk(path):
 	# For each file in the directory
 	for f in files:
 
-		if os.path.isdir(path+'/'+f):
+		if os.path.isdir('/'.join([path, f])):
 			# If f is a directory, we need to walk it too
-			walk(path+'/'+f)
+			walk('/'.join([path, f]))
 
 		fn, ext = os.path.splitext(f)
 
 		if ext in ['.avi', '.divx', '.xvid', '.mkv', '.mov', '.mp4']:
 
 			print('film detecte')
-			vid = Video('%s/%s' % (path, f))
+			vid = Video('/'.join([path, f]))
 
 			# Downloading subtitles, and then building mp4 file
 			if vid.subdl() == True:
