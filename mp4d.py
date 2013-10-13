@@ -172,32 +172,32 @@ class mp4d(Daemon):
 #--------------------------------------------------------------------------------------------------
 
 class Video:
-	path            = None
-	videofile       = None
-    fullvideofile   = None
-	targetdir       = None
+	path			= None
+	videofile		= None
+	fullvideofile   = None
+	targetdir		= None
 	audiofile 		= None
-    fullaudtmpfile  = None
-    fullaudiofile   = None
-    fullsubfile     = None
-	name            = None
-	target          = None
-    hash            = None
+	fullaudtmpfile	= None
+	fullaudiofile	= None
+	fullsubfile		= None
+	name			= None
+	target			= None
+	hash			= None
 
 #--------------------------------------------------------------------------------------------------
 # Class constructor, _path is the video path
 #--------------------------------------------------------------------------------------------------
 	def __init__(self, _path):
-        self.fullvideofile  = _path
-		self.path           = os.path.dirname(_path)
-		self.videofile      = os.path.basename(_path)
-		self.targetdir      = '/home/paul/videos'
-        self.hash           = self.hashit(_path)
-        self.size           = os.path.getsize(_path)
-        self.fullaudiofile  = '/'.join([self.path, 'tmp.aac'])
-        self.fullaudtmpfile = '/'.join([self.path, 'tmp.aud'])
-        self.fullvideofile  = '/'.join([self.path, 'tmp.vid'])
-        self.fullsubfile    = '/'.join([self.path, 'tmp.srt'])
+		self.fullvideofile  = _path
+		self.path			= os.path.dirname(_path)
+		self.videofile		= os.path.basename(_path)
+		self.targetdir		= '/home/paul/videos'
+		self.hash			= self.hashit()
+		self.size			= os.path.getsize(_path)
+		self.fullaudiofile	= '/'.join([self.path, 'tmp.aac'])
+		self.fullaudtmpfile	= '/'.join([self.path, 'tmp.aud'])
+		self.fullvideofile	= '/'.join([self.path, 'tmp.vid'])
+		self.fullsubfile	= '/'.join([self.path, 'tmp.srt'])
 #--------------------------------------------------------------------------------------------------
 		
 #--------------------------------------------------------------------------------------------------	
@@ -259,7 +259,7 @@ class Video:
 				#res += subprocess.call("" % (), shell=True)
 		
 		else :
-			print("os.rename(%s, %s)" % ( self.fullvideofile, self.fullvideofile )
+			print("os.rename(%s, %s)" % ( self.fullvideofile, self.fullvideofile ))
 			
 		# 2) if audio is not aac -> ffmpeg (encode)
 		if isAac() == False:
@@ -334,8 +334,8 @@ class Video:
 				print("downloading subtitles")
 	
 				# Download subtitles
-				sub_url     = sublist['data'][0]['SubDownloadLink']
-				op_download = subprocess.call('wget -O - ' + sub_url + ' | gunzip > "' + self.path + '/tmp.srt"', shell=True)
+				sub_url		= sublist['data'][0]['SubDownloadLink']
+				op_download = subprocess.call('wget -O - %s | gunzip > "%s/tmp.srt"' % (sub_url, self.path), shell=True)
 	
 				print("op_download : %s" % (str(op_download)))
 	
@@ -373,7 +373,7 @@ def walk(path):
 
 		if ext in ['.avi', '.divx', '.xvid', '.mkv', '.mov', '.mp4']:
 
-			print('film detecte')
+			print('film detecte : %s' % (f))
 			vid = Video('/'.join([path, f]))
 
 			# Downloading subtitles, and then building mp4 file
@@ -397,7 +397,7 @@ def hurt_me_plenty(text):
 if __name__ == '__main__':
 
 	#logging.basicConfig(filename='subdl.log', level=print)
-	walk('/Users/anais/Paul')
+	walk('/Users/paul/Downloads')
 	#daemon = mp4d('/tmp/mp4d.pid')
 
 	#if len(sys.argv) == 2:
@@ -412,6 +412,6 @@ if __name__ == '__main__':
 	#	sys.exit(0)
 	#else:
 	#	print "usage: %s start|stop|restart" % sys.argv[0]
-    #   	exit(2)
-    
+	#   	exit(2)
+	
 #--------------------------------------------------------------------------------------------------
