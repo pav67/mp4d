@@ -191,7 +191,7 @@ class Video:
 		self.fullvideofile  = _path
 		self.path			= os.path.dirname(_path)
 		self.videofile		= os.path.basename(_path)
-		self.targetdir		= '/home/paul/videos'
+		self.targetdir		= '/home/anais/videos'
 		self.hash			= self.hashit()
 		self.size			= os.path.getsize(_path)
 		self.fullaudiofile	= '/'.join([self.path, 'tmp.aac'])
@@ -327,7 +327,9 @@ class Video:
 			sub_imdbid  = sublist['data'][0]['IDMovieImdb']
 			sub_infos   = server.GetIMDBMovieDetails(token, sub_imdbid)
 	
-			print("sub_infos : %s" % (sub_infos['data']['language']))
+			#print("sub_infos : %s" % (sub_infos['data']['language']))
+			print("sub_infos : %s" % (sub_infos))
+
 	
 			if 'French' not in sub_infos['data']['language']:
 	
@@ -335,8 +337,19 @@ class Video:
 	
 				# Download subtitles
 				sub_url		= sublist['data'][0]['SubDownloadLink']
-				op_download = subprocess.call('wget -O - %s | gunzip > "%s/tmp.srt"' % (sub_url, self.path), shell=True)
-	
+				#op_download = subprocess.call('wget -O - %s | gunzip > "%s/tmp.srt"' % (sub_url, self.path), shell=True)
+				
+				
+				#--------------------- for testing purposes -- to be deleted  --------
+				tmp = "%s.gz" % (sub_url.split('.gz')[0])
+				tmp2 = tmp.split('/')[-1]
+				print ("suburl : %s -- %s" % (tmp, tmp2))
+				
+				op_download = subprocess.call("curl -O %s" % (tmp), shell=True)
+				if op_download == 0 :
+					op_download = subprocess.call('cat %s | gunzip > "%s/tmp.srt"' % (tmp2, self.path), shell=True)
+				#----------------------------------------------------------------------
+				
 				print("op_download : %s" % (str(op_download)))
 	
 				if op_download == 0:
@@ -397,7 +410,7 @@ def hurt_me_plenty(text):
 if __name__ == '__main__':
 
 	#logging.basicConfig(filename='subdl.log', level=print)
-	walk('/Users/paul/Downloads')
+	walk('/Users/anais/Paul')
 	#daemon = mp4d('/tmp/mp4d.pid')
 
 	#if len(sys.argv) == 2:
